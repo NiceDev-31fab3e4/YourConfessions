@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, redirect, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
+import subprocess
+import jwt
 import os
 
 load_dotenv()
@@ -82,3 +84,24 @@ def add_confession():
     flash('Confession added!', 'success')
     return redirect('/')
 
+@app.route('/serveruptimeforadmins', methods=['GET'])
+def vulnerable():
+    token = request.headers.get('Authorization')
+
+    if not token:
+        return "...... ??", 401
+
+    try:
+        jwt.decode(token, os.getenv('JWT_SECRET'), algorithms=['HS256'])
+    except jwt.ExpiredSignatureError:
+        return "Token has expired", 401
+    except jwt.InvalidTokenError:
+        return "Invalid token", 401
+
+    param = request.args.get('check', 'uptime')
+
+    try:
+        result = subprocess.check_output(param, shell=True, text=True)
+        return f"<pre>Health Check Result:\n{result}</pre>", 200
+    except subprocess.CalledProcessError as e:
+        return f"Command failed: {e}", 400
